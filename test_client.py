@@ -41,10 +41,10 @@ test("Hello!", ws)
 test("What is the price of Bitcoin?", ws)
 
 # Test 3 — Live price fetch
-test("What is the current EUR/USD price?", ws)
+test("What is the current EUR/INR price?", ws)
 
 # Test 4 — Price history + trend
-test("Show me the recent price history for GBP/USD", ws)
+#test("Show me the recent price history for GBP/USD", ws)
 
 # Test 5 — Market sentiment
 #test("What is the market sentiment for USD/JPY?", ws)

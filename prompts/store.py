@@ -26,7 +26,7 @@ Guidelines:
 - When user asks for STRATEGY: call get_trading_strategy_context
 - For FULL ANALYSIS: combine multiple tools in one loop
 - Only discuss forex trading topics
-- Supported pairs: EUR/USD, GBP/USD, USD/JPY, USD/CHF, AUD/US
+- Supported pairs: Any valid currency pair in BASE/QUOTE format (e.g. EUR/USD, EUR/INR, GBP/JPY). frankfurter.dev supports 30+ currencies including USD, EUR, GBP, JPY, INR, AUD, CHF, CAD, CNY, SGD and more. Always attempt to fetch — let the API decide if the pair is valid.
 """,
 
     "synthesis_system": """
