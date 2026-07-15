@@ -63,7 +63,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 await websocket.send_text(json.dumps({"status": "thinking"}))
                 await websocket.send_text(json.dumps({
                     "status": "done",
-                    "response": "Hello! I'm your forex trading assistant. Ask me about currency pairs like EUR/USD, GBP/USD, USD/JPY and more!",
+                    "response": "Hello! I'm your forex trading assistant. Ask me about currency pairs like EUR/USD, GBP/USD, USD/JPY and more!!",
                     "tool_calls_made": 0,
                     "is_fast_path": True
                 }))
