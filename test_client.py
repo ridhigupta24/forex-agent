@@ -44,19 +44,19 @@ test("What is the price of Bitcoin?", ws)
 test("What is the current EUR/INR price?", ws)
 
 # Test 4 — Price history + trend
-#test("Show me the recent price history for GBP/USD", ws)
+test("Show me the recent price history for GBP/USD", ws)
 
 # Test 5 — Market sentiment
-#test("What is the market sentiment for USD/JPY?", ws)
+test("What is the market sentiment for USD/JPY?", ws)
 
 # Test 6 — Full analysis with multiple tools
-#test("Give me a full analysis of AUD/USD including price, sentiment and trading strategy", ws)
+test("Give me a full analysis of AUD/USD including price, sentiment and trading strategy", ws)
 
 # Test 7 — Brief response style
-#test("Give me a quick summary of USD/CHF", ws)
+test("Give me a quick summary of USD/CHF", ws)
 
 # Test 8 — Conversation memory
-#test("Based on everything we discussed, which pair looks most promising?", ws)
+test("Based on everything we discussed, which pair looks most promising?", ws)
 
 ws.close()
 print("\n✅ All tests complete!")

@@ -2,6 +2,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from langchain_core.messages import HumanMessage
 from agent.graph import forex_agent
 from agent.state import AgentState
+from agent.utils import is_greeting, is_out_of_scope
 from db.database import init_db
 import json
 import re
@@ -47,29 +48,18 @@ async def websocket_endpoint(websocket: WebSocket):
             message_lower = user_message.lower().strip()
             import re
 
-            GREETINGS = ["hi", "hello", "hey", "good morning", "good evening", "good afternoon"]
-            OUT_OF_SCOPE = ["stock", "crypto", "bitcoin", "ethereum", "nft", "real estate", "gold", "silver"]
-
-            is_greeting = any(
-                re.search(rf'\b{re.escape(g)}\b', message_lower) for g in GREETINGS
-            ) and len(message_lower.split()) <= 4
-
-            is_oos = any(
-                re.search(rf'\b{re.escape(o)}\b', message_lower) for o in OUT_OF_SCOPE
-            )
-
-            # Handle fast-path directly here without touching conversation history
-            if is_greeting:
+            # Clean single-source fast-path check
+            if is_greeting(user_message):
                 await websocket.send_text(json.dumps({"status": "thinking"}))
                 await websocket.send_text(json.dumps({
                     "status": "done",
-                    "response": "Hello! I'm your forex trading assistant. Ask me about currency pairs like EUR/USD, GBP/USD, USD/JPY and more!!",
+                    "response": "Hello! I'm your forex trading assistant. Ask me about currency pairs like EUR/USD, GBP/USD, USD/JPY and more!",
                     "tool_calls_made": 0,
                     "is_fast_path": True
                 }))
                 continue
 
-            if is_oos:
+            if is_out_of_scope(user_message):
                 await websocket.send_text(json.dumps({"status": "thinking"}))
                 await websocket.send_text(json.dumps({
                     "status": "done",
