@@ -6,6 +6,8 @@ from agent.utils import is_greeting, is_out_of_scope
 from db.database import init_db
 import json
 import re
+import asyncio
+from functools import partial
 
 app = FastAPI(title="Forex Trading Agent")
 
@@ -86,7 +88,11 @@ async def websocket_endpoint(websocket: WebSocket):
 
             await websocket.send_text(json.dumps({"status": "thinking"}))
 
-            result = forex_agent.invoke(initial_state)
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None,
+                partial(forex_agent.invoke, initial_state)
+                )
 
             final_response = result.get("final_response", "Sorry, I could not generate a response.")
             final_response = re.sub(r'<think.*?>.*?</think.*?>', '', final_response, flags=re.DOTALL).strip()
