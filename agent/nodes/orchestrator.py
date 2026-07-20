@@ -40,7 +40,19 @@ def orchestrator_node(state: AgentState) -> AgentState:
     system_prompt = SystemMessage(content=get_prompt("orchestrator_system"))
     messages = [system_prompt] + state["messages"]
 
-    response = llm_with_tools.invoke(messages)
+    try:
+        response = llm_with_tools.invoke(messages)
+    except Exception as e:
+        error_msg = str(e)
+        print(f"LLM call failed in orchestrator: {error_msg}")
+        from langchain_core.messages import AIMessage
+        return {
+            **state,
+            "messages": state["messages"] + [
+                AIMessage(content=f"I encountered an error while processing your request. Please try again.")
+                ],
+                "tool_calls_count": state["tool_calls_count"],
+                }
 
     # Check if LLM wants to call any tools
     tool_calls = getattr(response, "tool_calls", [])

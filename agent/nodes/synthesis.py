@@ -35,7 +35,18 @@ def synthesis_node(state: AgentState) -> AgentState:
     # Pass full conversation history including all tool results
     messages = [system_prompt] + state["messages"]
 
-    response = llm.invoke(messages)
+    try:
+        response = llm.invoke(messages)
+    except Exception as e:
+        error_msg = str(e)
+        print(f"LLM call failed in synthesis: {error_msg}")
+        from langchain_core.messages import AIMessage
+        fallback = AIMessage(content="I was unable to generate a response due to a service error. Please try again.")
+        return {
+            **state,
+            "messages": state["messages"] + [fallback],
+            "final_response": fallback.content
+            }
 
     clean_response = response.content
     clean_response = re.sub(r'<think.*?>.*?</think.*?>', '', clean_response, flags=re.DOTALL).strip()

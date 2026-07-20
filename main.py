@@ -89,10 +89,20 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.send_text(json.dumps({"status": "thinking"}))
 
             loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(
-                None,
-                partial(forex_agent.invoke, initial_state)
-                )
+            try:
+                result = await loop.run_in_executor(
+                    None,
+                    partial(forex_agent.invoke, initial_state)
+                    )
+            except Exception as e:
+                print(f"Agent error: {str(e)}")
+                await websocket.send_text(json.dumps({
+                    "status": "error",
+                    "response": "Something went wrong while processing your request. Please try again.",
+                    "tool_calls_made": 0,
+                    "is_fast_path": False
+                    }))
+                continue
 
             final_response = result.get("final_response", "Sorry, I could not generate a response.")
             final_response = re.sub(r'<think.*?>.*?</think.*?>', '', final_response, flags=re.DOTALL).strip()
