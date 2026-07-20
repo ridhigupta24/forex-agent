@@ -2,6 +2,9 @@ import httpx
 from langchain_core.tools import tool
 from db.database import insert_price, fetch_latest_price, fetch_price_history
 from datetime import datetime, timedelta
+from logger import setup_logger
+
+logger = setup_logger("trade_ledger")
 
 @tool
 def fetch_and_store_forex_price(currency_pair: str) -> dict:
@@ -21,6 +24,7 @@ def fetch_and_store_forex_price(currency_pair: str) -> dict:
         )
         data = response.json()
         price = data["rates"][quote]
+        logger.info(f"Fetched live price — {currency_pair}: {price}")
 
         # Store in DB
         insert_price(currency_pair, price, base, quote)
@@ -87,11 +91,16 @@ def seed_price_history(currency_pair: str) -> dict:
                 price = data["rates"][quote]
                 insert_price(currency_pair, price, base, quote)
                 seeded.append({"date": date, "price": price})
+                #logger.debug(f"Seeded {currency_pair} for {date}: {price}")
         except Exception as e:
             continue
+        
+    logger.info(f"Seeded {len(seeded)} records for {currency_pair}")
 
     return {
         "currency_pair": currency_pair,
         "seeded_records": len(seeded),
         "history": seeded
     }
+
+ 

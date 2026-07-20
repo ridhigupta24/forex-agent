@@ -1,6 +1,8 @@
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from config import DATABASE_URL
+from logger import setup_logger
+logger = setup_logger("database")
 
 def get_connection():
     return psycopg2.connect(DATABASE_URL)
@@ -25,7 +27,7 @@ def init_db():
     conn.commit()
     cursor.close()
     conn.close()
-    print(" Database initialized — forex_trade_ledger table ready")
+    logger.info(" Database initialized — forex_trade_ledger table ready")
 
 def fetch_latest_price(currency_pair: str):
     """Fetch latest price for a currency pair from DB"""
@@ -74,7 +76,7 @@ def insert_price(currency_pair: str, price: float, base: str, quote: str):
     conn.commit()
     cursor.close()
     conn.close()
-    print(f"Inserted price for {currency_pair}: {price}")
+    logger.info(f"Inserted price for {currency_pair}: {price}")
 
 def has_price_history(currency_pair: str, min_records: int = 5) -> bool:
     """Check if we have enough history for a pair"""

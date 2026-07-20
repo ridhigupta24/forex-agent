@@ -11,6 +11,9 @@ from agent.tools.trade_ledger import (
     get_price_history,
     seed_price_history
 )
+from logger import setup_logger
+
+logger = setup_logger("orchestrator")
 
 # All tools available to the orchestrator
 TOOLS = [
@@ -40,11 +43,15 @@ def orchestrator_node(state: AgentState) -> AgentState:
     system_prompt = SystemMessage(content=get_prompt("orchestrator_system"))
     messages = [system_prompt] + state["messages"]
 
+    tool_calls = []
+    response = None
+
     try:
         response = llm_with_tools.invoke(messages)
+        logger.debug(f"Orchestrator LLM call successful — tool calls: {len(tool_calls)}")
     except Exception as e:
         error_msg = str(e)
-        print(f"LLM call failed in orchestrator: {error_msg}")
+        logger.error(f"LLM call failed in orchestrator: {error_msg}")
         from langchain_core.messages import AIMessage
         return {
             **state,
@@ -75,6 +82,7 @@ def orchestrator_node(state: AgentState) -> AgentState:
         if tool_fn:
             try:
                 result = tool_fn.invoke(tool_args)
+                logger.info(f"Tool called: {tool_name} with args: {tool_args}")
             except Exception as e:
                 result = {"error": str(e)}
         else:

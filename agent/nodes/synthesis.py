@@ -4,6 +4,9 @@ from agent.state import AgentState
 from prompts.store import get_prompt
 from config import OPENROUTER_API_KEY, MODEL_NAME
 import re
+from logger import setup_logger
+
+logger = setup_logger("synthesis")
 
 llm = ChatOpenAI(
     model=MODEL_NAME,
@@ -39,7 +42,7 @@ def synthesis_node(state: AgentState) -> AgentState:
         response = llm.invoke(messages)
     except Exception as e:
         error_msg = str(e)
-        print(f"LLM call failed in synthesis: {error_msg}")
+        logger.error(f"LLM call failed in synthesis: {error_msg}")
         from langchain_core.messages import AIMessage
         fallback = AIMessage(content="I was unable to generate a response due to a service error. Please try again.")
         return {
@@ -52,6 +55,7 @@ def synthesis_node(state: AgentState) -> AgentState:
     clean_response = re.sub(r'<think.*?>.*?</think.*?>', '', clean_response, flags=re.DOTALL).strip()
     clean_response = re.sub(r'<tool_calls.*?>.*?</tool_calls.*?>', '', clean_response, flags=re.DOTALL).strip()
     clean_response = re.sub(r'<tool_call.*?>.*?</tool_call.*?>', '', clean_response, flags=re.DOTALL).strip()
+    logger.info(f"Synthesis complete — response length: {len(clean_response)} chars")
 
     return {
         **state,

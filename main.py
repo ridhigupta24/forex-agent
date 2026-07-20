@@ -8,6 +8,8 @@ import json
 import re
 import asyncio
 from functools import partial
+from logger import setup_logger
+logger = setup_logger("main")
 
 app = FastAPI(title="Forex Trading Agent")
 
@@ -15,7 +17,7 @@ app = FastAPI(title="Forex Trading Agent")
 async def startup():
     """Initialize DB on startup"""
     init_db()
-    print("Forex Agent started")
+    logger.info("Forex Agent started")
 
 @app.get("/health")
 async def health():
@@ -24,7 +26,7 @@ async def health():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    print("Client connected")
+    logger.info("Client connected")
 
     # Only store non-fast-path messages in history
     conversation_history = []
@@ -43,7 +45,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 await websocket.send_text(json.dumps({"error": "Empty message"}))
                 continue
 
-            print(f"Received: {user_message}")
+            logger.info(f"Received: {user_message}")
 
             # Check fast-path BEFORE building state
             # so we never add OOS/greeting messages to history
@@ -95,7 +97,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     partial(forex_agent.invoke, initial_state)
                     )
             except Exception as e:
-                print(f"Agent error: {str(e)}")
+                logger.error(f"Agent error: {str(e)}")
                 await websocket.send_text(json.dumps({
                     "status": "error",
                     "response": "Something went wrong while processing your request. Please try again.",
@@ -119,7 +121,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 "is_fast_path": False
             }))
 
-            print(f"Response sent ({result.get('tool_calls_count', 0)} tool calls made)")
+            logger.info(f"Response sent ({result.get('tool_calls_count', 0)} tool calls made)")
 
     except WebSocketDisconnect:
-        print("Client disconnected")
+        logger.error("Client disconnected")
