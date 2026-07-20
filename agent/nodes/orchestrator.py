@@ -48,7 +48,7 @@ def orchestrator_node(state: AgentState) -> AgentState:
 
     try:
         response = llm_with_tools.invoke(messages)
-        logger.debug(f"Orchestrator LLM call successful — tool calls: {len(tool_calls)}")
+        #logger.debug(f"Orchestrator LLM call successful — tool calls: {len(tool_calls)}")
     except Exception as e:
         error_msg = str(e)
         logger.error(f"LLM call failed in orchestrator: {error_msg}")
