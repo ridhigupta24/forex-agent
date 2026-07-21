@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from langchain_core.messages import HumanMessage
-from agent.graph import forex_agent
+from agent.graph import forex_agent, checkpointer
 from agent.state import AgentState
 from agent.utils import is_greeting, is_out_of_scope
 from db.database import init_db
@@ -9,6 +9,8 @@ import re
 import asyncio
 from functools import partial
 from logger import setup_logger
+import uuid
+
 logger = setup_logger("main")
 
 app = FastAPI(title="Forex Trading Agent")
@@ -24,12 +26,13 @@ async def health():
     return {"status": "ok", "agent": "forex-trading-agent"}
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, user_id: str = "default-user"):
     await websocket.accept()
-    logger.info("Client connected")
+    # Use user_id as thread_id so same user always loads same conversation
+    thread_id = user_id
+    logger.info(f"New session started — thread_id: {thread_id}")
 
-    # Only store non-fast-path messages in history
-    conversation_history = []
+    logger.info("Client connected")
 
     try:
         while True:
@@ -77,7 +80,7 @@ async def websocket_endpoint(websocket: WebSocket):
             current_message = HumanMessage(content=user_message)
 
             initial_state: AgentState = {
-                "messages": conversation_history + [current_message],
+                "messages": [current_message],
                 "forex_data": None,
                 "api_data": None,
                 "rag_context": None,
@@ -92,9 +95,10 @@ async def websocket_endpoint(websocket: WebSocket):
 
             loop = asyncio.get_event_loop()
             try:
+                config = {"configurable": {"thread_id": thread_id}}
                 result = await loop.run_in_executor(
                     None,
-                    partial(forex_agent.invoke, initial_state)
+                    partial(forex_agent.invoke, initial_state, config)
                     )
             except Exception as e:
                 logger.error(f"Agent error: {str(e)}")
@@ -110,9 +114,6 @@ async def websocket_endpoint(websocket: WebSocket):
             final_response = re.sub(r'<think.*?>.*?</think.*?>', '', final_response, flags=re.DOTALL).strip()
             final_response = re.sub(r'<tool_calls.*?>.*?</tool_calls.*?>', '', final_response, flags=re.DOTALL).strip()
             final_response = re.sub(r'<tool_call.*?>.*?</tool_call.*?>', '', final_response, flags=re.DOTALL).strip()
-
-            # Update history only with real forex conversation
-            conversation_history = list(result["messages"])
 
             await websocket.send_text(json.dumps({
                 "status": "done",
