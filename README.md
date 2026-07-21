@@ -1,29 +1,41 @@
 # Forex Trading Agent
 
-A LangGraph-based agentic AI system for forex trading analysis.
-## Architecture
-- **WebSocket server** — FastAPI
-- **Agent framework** — LangGraph (deep agent, max depth 4)
-- **LLM provider** — OpenRouter
-- **Database** — PostgreSQL (trade ledger)
-- **Forex data** — frankfurter.dev (free, no API key needed)
+A LangGraph-based agentic AI system for real-time forex trading analysis.
+
+## Stack
+- **FastAPI** — async WebSocket server
+- **LangGraph** — deep agent, tool-calling loop (max depth 4)
+- **OpenRouter** — LLM provider
+- **PostgreSQL** — trade ledger + conversation checkpoints
+- **Docker** — containerized deployment
 
 ## Features
-- Real-time forex price fetching and storage
+- Live forex price fetching for any valid currency pair (frankfurter.dev)
 - 7-day historical price seeding and trend analysis
-- Market sentiment analysis (mocked)
-- Trading strategy context (mocked RAG)
-- Rate limiting + fast-path for greetings/OOS queries
-- Personalization layer (risk tolerance, response style)
-- Prompt store for easy prompt management
+- Mocked sentiment, economic calendar, and RAG tools
+- Conversation persistence across sessions (LangGraph PostgresSaver)
+- Structured Pydantic response schema
+- Async non-blocking agent via thread pool
+- Structured logging and LLM error handling
 
 ## Setup
-1. Copy `.env.example` to `.env` and fill in your keys
-2. Start PostgreSQL
-3. Run `pip install -r requirements.txt`
-4. Run `uvicorn main:app --reload --port 8000`
+
+**Docker (recommended):**
+```bash
+cp .env.example .env   # add your OpenRouter API key
+docker-compose up --build
+```
+
+**Local:**
+```bash
+cp .env.example .env
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
 
 ## Testing
 ```bash
-python test_client.py
+python test_client.py        # full test suite
+python test_checkpoint.py    # session persistence
 ```
+
