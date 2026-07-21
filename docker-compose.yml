@@ -1,0 +1,46 @@
+version: "3.8"
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:15
+    container_name: forex-db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: forex
+    ports:
+      - "5433:5432"  # 5433 on host to avoid conflict with existing litellm-db
+    volumes:
+      - forex_postgres_data:/var/lib/postgresql/data
+    networks:
+      - forex-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d forex"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Forex Agent
+  forex-agent:
+    build: .
+    container_name: forex-agent
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - MODEL_NAME=${MODEL_NAME}
+      - DATABASE_URL=postgresql://admin:admin123@postgres:5432/forex
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - forex-network
+    restart: unless-stopped
+
+networks:
+  forex-network:
+    driver: bridge
+
+volumes:
+  forex_postgres_data:
