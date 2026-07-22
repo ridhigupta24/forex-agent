@@ -3,7 +3,7 @@ from langchain_core.messages import HumanMessage
 from agent.graph import forex_agent, checkpointer
 from agent.state import AgentState
 from agent.utils import is_greeting, is_out_of_scope
-from db.database import init_db
+from db.database import init_db, close_pool
 import json
 import re
 import asyncio
@@ -18,8 +18,13 @@ app = FastAPI(title="Forex Trading Agent")
 @app.on_event("startup")
 async def startup():
     """Initialize DB on startup"""
-    init_db()
+    await init_db()
     logger.info("Forex Agent started")
+
+@app.on_event("shutdown")
+async def shutdown():
+    close_pool()
+    logger.info("Forex Agent shutdown complete")
 
 @app.get("/health")
 async def health():
