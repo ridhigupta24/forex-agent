@@ -30,7 +30,7 @@ services:
     environment:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - MODEL_NAME=${MODEL_NAME}
-      - DATABASE_URL=postgresql://admin:admin123@postgres:5432/forex
+      - DATABASE_URL=${FOREX_DATABASE_URL}
     depends_on:
       postgres:
         condition: service_healthy
