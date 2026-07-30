@@ -1,41 +1,28 @@
 # Forex Trading Agent
 
-A LangGraph-based agentic AI system for real-time forex trading analysis.
+Real-time agentic AI system for forex trading analysis — built with LangGraph and FastAPI.
+
+## What it does
+A deep agent that fetches live forex prices, analyzes trends, retrieves sentiment, and streams responses word by word over WebSockets. Supports any valid currency pair.
 
 ## Stack
-- **FastAPI** — async WebSocket server
-- **LangGraph** — deep agent, tool-calling loop (max depth 4)
-- **OpenRouter** — LLM provider
-- **PostgreSQL** — trade ledger + conversation checkpoints
-- **Docker** — containerized deployment
+FastAPI · LangGraph · PostgreSQL · Docker · psycopg_pool · AsyncPostgresSaver
 
-## Features
-- Live forex price fetching for any valid currency pair (frankfurter.dev)
-- 7-day historical price seeding and trend analysis
-- Mocked sentiment, economic calendar, and RAG tools
-- Conversation persistence across sessions (LangGraph PostgresSaver)
-- Structured Pydantic response schema
-- Async non-blocking agent via thread pool
-- Structured logging and LLM error handling
+## Highlights
+- **Autonomous tool chaining** — agent independently decides which tools to call and in what order, up to 4 calls per query
+- **Real-time streaming** — responses appear token by token, users see tool calls happening live as the agent thinks
+- **Memory across sessions** — disconnect and reconnect, agent remembers the full conversation via Postgres-backed checkpointing
+- **Handles any forex pair** — not limited to a fixed list, fetches live data from ECB reference rates for any valid BASE/QUOTE pair
+- **Production-ready patterns** — async non-blocking server, connection pooling, structured logging, graceful error handling, Dockerized
 
-## Setup
-
-**Docker (recommended):**
+## Run it
 ```bash
-cp .env.example .env   # add your OpenRouter API key
+cp .env.example .env  
 docker-compose up --build
 ```
 
-**Local:**
+## Test it
 ```bash
-cp .env.example .env
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+python test_client.py       
+python test_concurrency.py  
 ```
-
-## Testing
-```bash
-python test_client.py        # full test suite
-python test_checkpoint.py    # session persistence
-```
-
