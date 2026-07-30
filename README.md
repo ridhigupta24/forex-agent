@@ -24,5 +24,5 @@ docker-compose up --build
 ## Test it
 ```bash
 python test_client.py       
-python test_concurrency.py  
+python test_checkpoint.py  
 ```
