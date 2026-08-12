@@ -8,10 +8,18 @@ from logger import setup_logger
 import json
 import re
 from api.ui_gateway import router as ui_router
+from fastapi.middleware.cors import CORSMiddleware
 
 logger = setup_logger("main")
 app = FastAPI(title="Forex Trading Agent")
 app.include_router(ui_router)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # allows Flutter web to call the API
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")
