@@ -39,6 +39,7 @@ async def init_db():
                 source VARCHAR(50) DEFAULT 'frankfurter'
             );
         """)
+    await init_user_profiles_table()
     logger.info("Database initialized — forex_trade_ledger table ready")
 
 def fetch_latest_price(currency_pair: str):
@@ -71,3 +72,58 @@ def insert_price(currency_pair: str, price: float, base: str, quote: str):
             VALUES (%s, %s, %s, %s);
         """, (currency_pair, price, base, quote))
     logger.info(f"Inserted price for {currency_pair}: {price}")
+
+
+async def init_user_profiles_table():
+    """Create user_profiles table if it doesn't exist"""
+    pool = get_pool()
+    with pool.connection() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_profiles (
+                user_id VARCHAR(100) PRIMARY KEY,
+                risk_tolerance VARCHAR(20) DEFAULT 'medium',
+                preferred_pairs TEXT[] DEFAULT ARRAY['EUR/USD'],
+                response_style VARCHAR(20) DEFAULT 'detailed',
+                updated_at TIMESTAMP DEFAULT NOW()
+            );
+        """)
+    logger.info("user_profiles table ready")
+
+def save_user_profile(user_id: str, profile: dict):
+    """Save or update user profile"""
+    pool = get_pool()
+    with pool.connection() as conn:
+        conn.execute("""
+            INSERT INTO user_profiles (user_id, risk_tolerance, preferred_pairs, response_style, updated_at)
+            VALUES (%s, %s, %s, %s, NOW())
+            ON CONFLICT (user_id) DO UPDATE SET
+                risk_tolerance = EXCLUDED.risk_tolerance,
+                preferred_pairs = EXCLUDED.preferred_pairs,
+                response_style = EXCLUDED.response_style,
+                updated_at = NOW();
+        """, (
+            user_id,
+            profile.get("risk_tolerance", "medium"),
+            profile.get("preferred_pairs", ["EUR/USD"]),
+            profile.get("response_style", "detailed")
+        ))
+    logger.info(f"Saved profile for user: {user_id}")
+
+def get_user_profile(user_id: str) -> dict:
+    """Load user profile from DB"""
+    pool = get_pool()
+    with pool.connection() as conn:
+        result = conn.execute("""
+            SELECT * FROM user_profiles WHERE user_id = %s;
+        """, (user_id,)).fetchone()
+
+        if result:
+            return dict(result)
+
+        # Return default profile if not found
+        return {
+            "user_id": user_id,
+            "risk_tolerance": "medium",
+            "preferred_pairs": ["EUR/USD"],
+            "response_style": "detailed"
+        }

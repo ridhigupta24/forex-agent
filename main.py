@@ -7,9 +7,11 @@ from db.database import init_db, close_pool
 from logger import setup_logger
 import json
 import re
+from api.ui_gateway import router as ui_router
 
 logger = setup_logger("main")
 app = FastAPI(title="Forex Trading Agent")
+app.include_router(ui_router)
 
 
 @app.on_event("startup")
@@ -87,6 +89,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str = "default-user"
                 "tool_calls_count": 0,
                 "max_depth": 4,
                 "user_profile": {},
+                "user_id": user_id,
                 "classifier_output": None,
                 "final_response": None,
                 "is_fast_path": False,

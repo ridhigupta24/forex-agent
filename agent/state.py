@@ -18,6 +18,7 @@ class AgentState(TypedDict):
 
     # Personalization
     user_profile: dict
+    user_id: str
 
     # Classifier output — structured data extracted from tool results
     classifier_output: Optional[ForexAnalysis]

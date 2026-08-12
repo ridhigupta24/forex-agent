@@ -6,6 +6,7 @@ load_dotenv()
 # OpenRouter directly
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME", "openrouter/meta-llama/llama-3.2-3b-instruct:free")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1")
 
 # Postgres
 DATABASE_URL = os.getenv(
