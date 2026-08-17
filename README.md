@@ -64,8 +64,8 @@ flutter run -d chrome --web-browser-flag "--disable-web-security"
 
 ```bash
 cd backend
-python test_client.py        # 8-scenario agent test suite
-python test_checkpoint.py    # session persistence across reconnects
+python test_client.py        
+python test_checkpoint.py   
 ```
 
 ---
