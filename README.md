@@ -15,7 +15,7 @@ They can also open the **chat tab** and ask the AI agent anything — it autonom
 ## Screenshots
 
 ### Personalized Dashboard
-![Dashboard](screenshots/forex_dashboard.png)
+![Dashboard](screenshots/forex-user-dashboard.png)
 
 ### Live Chat
 ![Chat](screenshots/forex_chat.png)
