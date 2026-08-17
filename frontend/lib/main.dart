@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:convert';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 void main() {
   runApp(const ForexApp());
@@ -14,7 +16,7 @@ class ForexApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Forex Dashboard',
+      title: 'Forex AI',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF0D1117),
@@ -30,7 +32,6 @@ class ForexApp extends StatelessWidget {
 }
 
 // ─── User Select Screen ───────────────────────────────────────────────────────
-// Simulates login — pick a user to see their personalized dashboard
 
 class UserSelectScreen extends StatelessWidget {
   const UserSelectScreen({super.key});
@@ -71,7 +72,7 @@ class UserSelectScreen extends StatelessWidget {
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => DashboardScreen(userId: user['id']!),
+                      builder: (_) => MainScreen(userId: user['id']!),
                     ),
                   ),
                   child: Container(
@@ -121,6 +122,50 @@ class UserSelectScreen extends StatelessWidget {
   }
 }
 
+// ─── Main Screen with Bottom Nav ─────────────────────────────────────────────
+
+class MainScreen extends StatefulWidget {
+  final String userId;
+  const MainScreen({super.key, required this.userId});
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  int _currentIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          DashboardScreen(userId: widget.userId),
+          ChatScreen(userId: widget.userId),
+        ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+        backgroundColor: const Color(0xFF161B22),
+        selectedItemColor: const Color(0xFF00D4AA),
+        unselectedItemColor: Colors.white38,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard_rounded),
+            label: 'Dashboard',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_rounded),
+            label: 'Chat',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─── Dashboard Screen ─────────────────────────────────────────────────────────
 
 class DashboardScreen extends StatefulWidget {
@@ -143,6 +188,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> fetchDashboard() async {
+    setState(() { loading = true; error = null; });
     try {
       final response = await http.get(
         Uri.parse('http://localhost:8000/ui/dashboard?user_id=${widget.userId}'),
@@ -153,16 +199,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           loading = false;
         });
       } else {
-        setState(() {
-          error = 'Failed to load dashboard';
-          loading = false;
-        });
+        setState(() { error = 'Failed to load dashboard'; loading = false; });
       }
     } catch (e) {
-      setState(() {
-        error = 'Cannot connect to server: $e';
-        loading = false;
-      });
+      setState(() { error = 'Cannot connect to server: $e'; loading = false; });
     }
   }
 
@@ -171,16 +211,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF161B22),
+        automaticallyImplyLeading: false,
         title: const Text('Dashboard',
             style: TextStyle(color: Color(0xFF00D4AA))),
-        iconTheme: const IconThemeData(color: Color(0xFF00D4AA)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() => loading = true);
-              fetchDashboard();
-            },
+            icon: const Icon(Icons.refresh, color: Color(0xFF00D4AA)),
+            onPressed: fetchDashboard,
           )
         ],
       ),
@@ -197,67 +234,488 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             )
           : error != null
-              ? Center(child: Text(error!, style: const TextStyle(color: Colors.red)))
+              ? Center(child: Text(error!, style: const TextStyle(color: Colors.redAccent)))
               : _buildDashboard(),
     );
   }
 
   Widget _buildDashboard() {
     final components = screenData!['components'] as List<dynamic>;
-
     return RefreshIndicator(
       onRefresh: fetchDashboard,
       color: const Color(0xFF00D4AA),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Header
           Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: Text(
               'Good day, ${widget.userId} 👋',
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
           ),
-          // Render each component
-          ...components.map((component) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: _buildComponent(component as Map<String, dynamic>),
-            );
-          }),
+          ...components.map((component) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildComponent(component as Map<String, dynamic>),
+          )),
         ],
       ),
     );
   }
 
-  // ─── Component Renderer ───────────────────────────────────────────────────
-  // This is the core of SDUI — reads component type and renders the right widget
-
   Widget _buildComponent(Map<String, dynamic> component) {
     switch (component['type']) {
-      case 'price_card':
-        return PriceCard(data: component);
-      case 'sentiment_widget':
-        return SentimentWidget(data: component);
-      case 'history_chart':
-        return HistoryChart(data: component);
-      case 'alert_banner':
-        return AlertBanner(data: component);
-      case 'trading_strategy':
-        return TradingStrategy(data: component);
-      case 'user_profile_card':
-        return UserProfileCard(data: component);
-      default:
-        return const SizedBox.shrink();
+      case 'price_card': return PriceCard(data: component);
+      case 'sentiment_widget': return SentimentWidget(data: component);
+      case 'history_chart': return HistoryChart(data: component);
+      case 'alert_banner': return AlertBanner(data: component);
+      case 'trading_strategy': return TradingStrategy(data: component);
+      case 'user_profile_card': return UserProfileCard(data: component);
+      default: return const SizedBox.shrink();
     }
   }
 }
 
-// ─── Components ───────────────────────────────────────────────────────────────
+// ─── Chat Screen ──────────────────────────────────────────────────────────────
+
+class ChatMessage {
+  final String text;
+  final bool isUser;
+  final bool isToolCall;
+  final bool isStreaming;
+
+  ChatMessage({
+    required this.text,
+    required this.isUser,
+    this.isToolCall = false,
+    this.isStreaming = false,
+  });
+}
+
+class ChatScreen extends StatefulWidget {
+  final String userId;
+  const ChatScreen({super.key, required this.userId});
+
+  @override
+  State<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends State<ChatScreen> {
+  final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final List<ChatMessage> _messages = [];
+  WebSocketChannel? _channel;
+  bool _isConnected = false;
+  bool _isThinking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _connect();
+  }
+
+  void _connect() {
+    try {
+      _channel = WebSocketChannel.connect(
+        Uri.parse('ws://localhost:8000/ws?user_id=${widget.userId}'),
+      );
+      setState(() => _isConnected = true);
+
+      _channel!.stream.listen(
+        (data) => _handleMessage(data),
+        onDone: () {
+          setState(() => _isConnected = false);
+        },
+        onError: (error) {
+          setState(() => _isConnected = false);
+        },
+      );
+    } catch (e) {
+      setState(() => _isConnected = false);
+    }
+  }
+
+  void _handleMessage(dynamic data) {
+    final message = json.decode(data as String);
+    final type = message['type'] as String?;
+
+    setState(() {
+      switch (type) {
+        case 'thinking':
+          _isThinking = true;
+          break;
+
+        case 'tool_call':
+          // Show tool call as a small indicator bubble
+          _messages.add(ChatMessage(
+            text: '🔧 ${message['tool']}',
+            isUser: false,
+            isToolCall: true,
+          ));
+          break;
+
+        case 'token':
+          // Append token to the last AI message or create new one
+          final token = message['token'] as String? ?? '';
+          if (_messages.isNotEmpty &&
+              !_messages.last.isUser &&
+              !_messages.last.isToolCall &&
+              _messages.last.isStreaming) {
+            final last = _messages.removeLast();
+            _messages.add(ChatMessage(
+              text: last.text + token,
+              isUser: false,
+              isStreaming: true,
+            ));
+          } else {
+            _isThinking = false;
+            _messages.add(ChatMessage(
+              text: token,
+              isUser: false,
+              isStreaming: true,
+            ));
+          }
+          break;
+
+        case 'done':
+          _isThinking = false;
+          // Mark last message as no longer streaming
+          if (_messages.isNotEmpty && _messages.last.isStreaming) {
+            final last = _messages.removeLast();
+            _messages.add(ChatMessage(
+              text: last.text.isEmpty
+                  ? (message['response'] as String? ?? '')
+                  : last.text,
+              isUser: false,
+              isStreaming: false,
+            ));
+          } else if (message['is_fast_path'] == true) {
+            _isThinking = false;
+            _messages.add(ChatMessage(
+              text: message['response'] as String? ?? '',
+              isUser: false,
+            ));
+          }
+          break;
+
+        case 'error':
+          _isThinking = false;
+          _messages.add(ChatMessage(
+            text: '❌ ${message['response']}',
+            isUser: false,
+          ));
+          break;
+      }
+    });
+
+    _scrollToBottom();
+  }
+
+  void _sendMessage() {
+    final text = _controller.text.trim();
+    if (text.isEmpty || !_isConnected) return;
+
+    setState(() {
+      _messages.add(ChatMessage(text: text, isUser: true));
+      _isThinking = true;
+    });
+
+    _channel?.sink.add(json.encode({'message': text}));
+    _controller.clear();
+    _scrollToBottom();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _channel?.sink.close();
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF161B22),
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: [
+            const Text('Forex AI Chat',
+                style: TextStyle(color: Color(0xFF00D4AA))),
+            const Spacer(),
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: _isConnected ? const Color(0xFF00D4AA) : Colors.redAccent,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              _isConnected ? 'Connected' : 'Disconnected',
+              style: TextStyle(
+                fontSize: 12,
+                color: _isConnected ? const Color(0xFF00D4AA) : Colors.redAccent,
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: Column(
+        children: [
+          // Messages list
+          Expanded(
+            child: _messages.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _messages.length + (_isThinking ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == _messages.length && _isThinking) {
+                        return _buildThinkingIndicator();
+                      }
+                      return _buildMessageBubble(_messages[index]);
+                    },
+                  ),
+          ),
+
+          // Input bar
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: const BoxDecoration(
+              color: Color(0xFF161B22),
+              border: Border(top: BorderSide(color: Color(0xFF30363D))),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    onSubmitted: (_) => _sendMessage(),
+                    decoration: InputDecoration(
+                      hintText: 'Ask about any forex pair...',
+                      hintStyle: const TextStyle(color: Colors.white38),
+                      filled: true,
+                      fillColor: const Color(0xFF0D1117),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _sendMessage,
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF00D4AA),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.send_rounded,
+                        color: Colors.black, size: 20),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.chat_bubble_outline_rounded,
+              size: 64, color: Colors.white12),
+          const SizedBox(height: 16),
+          const Text('Ask me anything about forex',
+              style: TextStyle(color: Colors.white38, fontSize: 16)),
+          const SizedBox(height: 8),
+          Text('Logged in as ${widget.userId}',
+              style: const TextStyle(color: Colors.white24, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildThinkingIndicator() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF161B22),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFF30363D)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFF00D4AA),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Text('Thinking...',
+                    style: TextStyle(color: Colors.white38, fontSize: 13)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageBubble(ChatMessage message) {
+    // Tool call indicator — small pill
+    if (message.isToolCall) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1F6FEB).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: const Color(0xFF1F6FEB).withOpacity(0.3)),
+              ),
+              child: Text(
+                message.text,
+                style: const TextStyle(
+                    color: Color(0xFF1F6FEB), fontSize: 11),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // User or AI message bubble
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        mainAxisAlignment: message.isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!message.isUser) ...[
+            Container(
+              width: 28,
+              height: 28,
+              margin: const EdgeInsets.only(right: 8),
+              decoration: const BoxDecoration(
+                color: Color(0xFF00D4AA),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.auto_awesome,
+                  size: 14, color: Colors.black),
+            ),
+          ],
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: message.isUser
+                    ? const Color(0xFF00D4AA).withOpacity(0.15)
+                    : const Color(0xFF161B22),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(18),
+                  topRight: const Radius.circular(18),
+                  bottomLeft: Radius.circular(message.isUser ? 18 : 4),
+                  bottomRight: Radius.circular(message.isUser ? 4 : 18),
+                ),
+                border: Border.all(
+                  color: message.isUser
+                      ? const Color(0xFF00D4AA).withOpacity(0.3)
+                      : const Color(0xFF30363D),
+                ),
+              ),
+              child: message.isUser
+                  ? Text(
+                      message.text,
+                      style: const TextStyle(
+                        color: Color(0xFF00D4AA),
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                    )
+                  : MarkdownBody(
+                      data: message.text,
+                      styleSheet: MarkdownStyleSheet(
+                        p: const TextStyle(
+                            color: Colors.white, fontSize: 14, height: 1.5),
+                        strong: const TextStyle(
+                            color: Color(0xFF00D4AA),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14),
+                        em: const TextStyle(
+                            color: Colors.white70,
+                            fontStyle: FontStyle.italic,
+                            fontSize: 14),
+                        listBullet: const TextStyle(
+                            color: Color(0xFF00D4AA), fontSize: 14),
+                        code: const TextStyle(
+                            color: Color(0xFF00D4AA),
+                            backgroundColor: Color(0xFF0D1117),
+                            fontSize: 13),
+                        blockquote: const TextStyle(
+                            color: Colors.white60, fontSize: 14),
+                        h1: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold),
+                        h2: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold),
+                        h3: const TextStyle(
+                            color: Color(0xFF00D4AA),
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Dashboard Components ────────────────────────────────────────────────────
 
 class PriceCard extends StatelessWidget {
   final Map<String, dynamic> data;
@@ -282,35 +740,24 @@ class PriceCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                data['pair'] ?? '',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF00D4AA),
-                ),
-              ),
+              Text(data['pair'] ?? '',
+                  style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF00D4AA))),
               const SizedBox(height: 4),
-              Text(
-                data['source'] ?? '',
-                style: const TextStyle(fontSize: 12, color: Colors.white38),
-              ),
+              Text(data['source'] ?? '',
+                  style: const TextStyle(fontSize: 12, color: Colors.white38)),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                data['price']?.toString() ?? 'N/A',
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Text(
-                'Live Price',
-                style: TextStyle(fontSize: 12, color: Colors.white38),
-              ),
+              Text(data['price']?.toString() ?? 'N/A',
+                  style: const TextStyle(
+                      fontSize: 28, fontWeight: FontWeight.bold)),
+              const Text('Live Price',
+                  style: TextStyle(fontSize: 12, color: Colors.white38)),
             ],
           ),
         ],
@@ -347,15 +794,12 @@ class SentimentWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '${data['pair']} Sentiment',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Text('${data['pair']} Sentiment',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold)),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: sentimentColor.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(20),
@@ -364,16 +808,14 @@ class SentimentWidget extends StatelessWidget {
                 child: Text(
                   (data['sentiment'] ?? 'neutral').toUpperCase(),
                   style: TextStyle(
-                    color: sentimentColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
+                      color: sentimentColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          // Score bar
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
@@ -408,7 +850,6 @@ class HistoryChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chartData = (data['data'] as List<dynamic>?) ?? [];
-
     if (chartData.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(20),
@@ -439,13 +880,9 @@ class HistoryChart extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${data['pair']} — 7 Day History',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          Text('${data['pair']} — 7 Day History',
+              style: const TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           SizedBox(
             height: 100,
@@ -462,15 +899,12 @@ class HistoryChart extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Low: ${minPrice.toStringAsFixed(4)}',
-                style: const TextStyle(fontSize: 11, color: Colors.redAccent),
-              ),
-              Text(
-                'High: ${maxPrice.toStringAsFixed(4)}',
-                style: const TextStyle(
-                    fontSize: 11, color: Color(0xFF00D4AA)),
-              ),
+              Text('Low: ${minPrice.toStringAsFixed(4)}',
+                  style: const TextStyle(
+                      fontSize: 11, color: Colors.redAccent)),
+              Text('High: ${maxPrice.toStringAsFixed(4)}',
+                  style: const TextStyle(
+                      fontSize: 11, color: Color(0xFF00D4AA))),
             ],
           ),
         ],
@@ -479,7 +913,6 @@ class HistoryChart extends StatelessWidget {
   }
 }
 
-// Simple line chart painter
 class LineChartPainter extends CustomPainter {
   final List<double> prices;
   final double minPrice;
@@ -573,10 +1006,8 @@ class AlertBanner extends StatelessWidget {
           Icon(severityIcon, color: severityColor, size: 24),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              data['message'] ?? '',
-              style: TextStyle(color: severityColor, fontSize: 14),
-            ),
+            child: Text(data['message'] ?? '',
+                style: TextStyle(color: severityColor, fontSize: 14)),
           ),
         ],
       ),
@@ -603,15 +1034,12 @@ class TradingStrategy extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_graph, color: Color(0xFF00D4AA), size: 20),
+              const Icon(Icons.auto_graph,
+                  color: Color(0xFF00D4AA), size: 20),
               const SizedBox(width: 8),
-              Text(
-                '${data['pair']} Strategy',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Text('${data['pair']} Strategy',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 12),
@@ -665,13 +1093,9 @@ class UserProfileCard extends StatelessWidget {
               const Icon(Icons.person_rounded,
                   color: Color(0xFF00D4AA), size: 20),
               const SizedBox(width: 8),
-              const Text(
-                'Your Profile',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              const Text('Your Profile',
+                  style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 16),
@@ -696,10 +1120,9 @@ class UserProfileCard extends StatelessWidget {
               style: const TextStyle(color: Colors.white38, fontSize: 13)),
           Text(value,
               style: TextStyle(
-                color: valueColor ?? Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              )),
+                  color: valueColor ?? Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500)),
         ],
       ),
     );
